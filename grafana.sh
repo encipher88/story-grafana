@@ -8,7 +8,7 @@ reset="\e[0m"
 echo -e "${green}*************Update and upgrade the system*************${reset}"
 
 apt-get update -y
-apt-get upgrade -y
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 
 # Install necessary dependencies
 echo -e "${green}*************Install necessary dependencies*************${reset}"
