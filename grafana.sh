@@ -5,7 +5,7 @@ pink="\e[35m"
 reset="\e[0m"
 
 json_data=$(curl -s http://localhost:26657/status)
-namada_address=$(echo "$json_data" | jq -r '.result.validator_info.address')
+story_address=$(echo "$json_data" | jq -r '.result.validator_info.address')
 network=$(echo "$json_data" | jq -r '.result.node_info.network')
 
 touch .bash_profile
@@ -20,7 +20,7 @@ apt-get upgrade -y
 
 # Install necessary dependencies
 echo -e "${green}*************Install necessary dependencies*************${reset}"
-apt-get install -y curl tar wget original-awk gawk netcat
+apt-get install -y curl tar wget original-awk gawk netcat jq
 
 set -e
 
@@ -42,16 +42,12 @@ check_service_status() {
   fi
 }
 
-
 # Create necessary directories
 echo -e "${green}*************Create necessary directories***********${reset}"
 
-# An array of directories to be created
 directories=("/var/lib/prometheus" "/etc/prometheus/rules" "/etc/prometheus/rules.d" "/etc/prometheus/files_sd")
 
-# Iterate through the array
 for dir in "${directories[@]}"; do
-  # Check if directory exists and is not empty
   if [ -d "$dir" ] && [ "$(ls -A $dir)" ]; then
     echo "$dir already exists and is not empty. Skipping..."
   else
@@ -59,7 +55,6 @@ for dir in "${directories[@]}"; do
     echo "Created directory: $dir"
   fi
 done
-
 
 # Download and extract Prometheus
 echo -e "${green}*************Download and extract Prometheus***********${reset}"
@@ -85,9 +80,8 @@ fi
 
 mv prometheus promtool /usr/local/bin/
 
-
-# Define the content to be added
-echo -e "${green}**************Define the content to be added**********${reset}"
+# Define Prometheus config
+echo -e "${green}**************Define Prometheus config**********${reset}"
 if [ -f "/etc/prometheus/prometheus.yml" ]; then
   rm "/etc/prometheus/prometheus.yml"
 fi
@@ -99,14 +93,13 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets: []
-
 rule_files: []
 scrape_configs:
   - job_name: "prometheus"
     metrics_path: /metrics
     static_configs:
       - targets: ["localhost:9345"]
-  - job_name: "namada"
+  - job_name: "story"
     scrape_interval: 5s
     metrics_path: /
     static_configs:
@@ -136,7 +129,6 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-
 # Reload systemd, enable, and start Prometheus
 echo -e "${green}**************Reload systemd, enable, and start Prometheus**********${reset}"
 systemctl daemon-reload
@@ -144,7 +136,6 @@ systemctl enable prometheus
 systemctl start prometheus
 
 # Check Prometheus service status
-echo -e "${green}***********Check Prometheus service status*************${reset}"
 check_service_status "prometheus"
 
 # Install Grafana
@@ -159,16 +150,10 @@ systemctl enable grafana-server
 systemctl start grafana-server
 
 # Check Grafana service status
-echo -e "${green}************Check Grafana service status************${reset}"
 check_service_status "grafana-server"
 
 # Get the real IP address of the server
-echo -e "${green}*************Get the real IP address of the server***********${reset}"
 real_ip=$(hostname -I | awk '{print $1}')
-
-# Check Prometheus service status again
-echo -e "${green}************Check Prometheus service status again************${reset}"
-check_service_status "prometheus"
 
 # Install and start Prometheus Node Exporter
 echo -e "${green}*************Install and start Prometheus Node Exporter***********${reset}"
@@ -200,54 +185,36 @@ EOF
 systemctl enable prometheus-node-exporter
 systemctl start prometheus-node-exporter
 
-# New port number grafana
-echo -e "${green}*************New port number grafana***********${reset}"
-# Grafana configuration file path
+# New port number for Grafana
+echo -e "${green}*************New port number for Grafana***********${reset}"
 grafana_config_file="/etc/grafana/grafana.ini"
-# New port number
 new_port="9346"
-# Check if the Grafana configuration file exists
+
 if [ ! -f "$grafana_config_file" ]; then
   echo "Grafana configuration file not found: $grafana_config_file"
   exit 1
 fi
-# Replace the port number in the configuration file
+
 sed -i "s/^;http_port = .*/http_port = $new_port/" "$grafana_config_file"
-# Restart the Grafana service
 systemctl restart grafana-server
-# Check Grafana service status
-echo -e "${green}************Check Grafana service status************${reset}"
 check_service_status "grafana-server"
 
-# Change config
+# Change config in story.toml
 echo -e "${green}*************Change config prometheus ON ***********${reset}"
 file_path="/root/.story/story/config/config.toml"
 search_text="prometheus = false"
 replacement_text="prometheus = true"
 
-# Check if the replacement text already exists in the file
 if grep -qFx "$replacement_text" "$file_path"; then
   echo "Replacement text already exists. No changes needed."
 else
-  # Replace the search text with the replacement text
   sed -i "s/$search_text/$replacement_text/g" "$file_path"
   echo "Text replaced successfully."
 fi
 
-search_text2='namespace = "cometbft"'
-replacement_text2='namespace = "namadan_tm"'
 
-# Check if the replacement text already exists in the file
-if grep -qFx "$replacement_text2" "$file_path"; then
-  echo "Replacement text already exists. No changes needed."
-else
-  # Replace the search text with the replacement text
-  sed -i "s/$search_text2/$replacement_text2/g" "$file_path"
-  echo "Text replaced successfully."
-fi
 
 # Reload systemd
-echo -e "${green}**************RESTART systemd**********${reset}"
 systemctl restart prometheus-node-exporter
 systemctl restart prometheus
 systemctl restart grafana-server
@@ -260,26 +227,66 @@ check_service_status "prometheus"
 check_service_status "grafana-server"
 check_service_status "story"
 
+# Grafana API details
+grafana_host="http://localhost:9346"
+admin_user="admin"
+admin_password="admin"
+prometheus_url="http://localhost:9344"
+dashboard_url="https://raw.githubusercontent.com/encipher88/story-grafana/main/story.json"
+
+
+# Modify the story.json with the dynamic validator address
+echo -e "${green}***********Downloading and modifying the story.json*************${reset}"
+curl -s "$dashboard_url" -o /root/story.json
+
+# Replace the hardcoded validator ID with the dynamic $story_address
+echo -e "${green}***********Replacing validator address in the story.json*************${reset}"
+sed -i "s/FCB1BF9FBACE6819137DFC999255175B7CA23C5D/$story_address/g" /root/story.json
+
+
+
+# Configure Prometheus data source in Grafana
+echo -e "${green}***********Configuring Prometheus data source in Grafana*************${reset}"
+curl -X POST "$grafana_host/api/datasources" \
+    -H "Content-Type: application/json" \
+    -u "$admin_user:$admin_password" \
+    -d '{
+          "name": "Prometheus",
+          "type": "prometheus",
+          "access": "proxy",
+          "url": "'"$prometheus_url"'",
+          "basicAuth": false,
+          "isDefault": true,
+          "jsonData": {}
+        }'
+
+# Import the modified dashboard and overwrite if it exists
+echo -e "${green}***********Importing the dashboard into Grafana*************${reset}"
+curl -X POST "$grafana_host/api/dashboards/db" \
+    -H "Content-Type: application/json" \
+    -u "$admin_user:$admin_password" \
+    -d '{
+          "dashboard": '"$(cat "$HOME/story.json")"',
+          "overwrite": true,
+          "folderId": 0
+        }'
+
+echo -e "${green}**********************************${reset}"
+
+echo -e "${green}***********Dashboard imported successfully*************${reset}"
+
+
 sleep 1
 
 echo -e "${green}*************Install OK***********${reset}"
 echo -e "${green}**********************************${reset}"
 echo -e "${green}**********************************${reset}"
-echo -e "${green}Grafana is accessible at: ${reset} http://$real_ip:$new_port"
+echo -e "${green}Grafana is accessible at: ${reset} http://$real_ip:$new_port/d/UJyurCTWz/"
 echo -e "${pink}Login credentials:${reset}"
 echo -e "${pink}---------Username:${reset} admin"
 echo -e "${pink}---------Password:${reset} admin"
-echo -e "${green}**********************************${reset}"
-echo -e "${pink} Open grafana and add to Home/Connections/Your_connections/Data_sources  ${reset}"
-echo -e "${pink} ...new source prometheus with address${reset} http://localhost:9344 "
-echo -e "${pink} ...click SAVE and TEST button  ${reset}"
-echo -e "${green}**********************************${reset}"
-echo -e "${green}**********************************${reset}"
-echo -e "${pink} ...then import to Home/Dashboards/Import_dashboard new dashboard    ${reset}"
-echo -e "${pink} ...Import NAMADA Dashboard   via grafana.com ${reset}  ID = 19014  "
-echo -e "${pink} ...Import Node Exporter Full via grafana.com ${reset}  ID = 1860  "
-echo -e "${pink} Change Validator ${reset}          $namada_address  "
-echo -e "${pink} Change Chain_ID  ${reset}          $network  "
+
+echo -e "${pink}  Validator ${reset}          $story_address  "
+echo -e "${pink}  Chain_ID  ${reset}          $network  "
 echo -e "${green}**********************************${reset}"
 echo -e "${green}**********************************${reset}"
-check_service_status "story"
