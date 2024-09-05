@@ -4,6 +4,28 @@ green="\e[32m"
 pink="\e[35m"
 reset="\e[0m"
 
+# Update and upgrade the system
+echo -e "${green}*************Update and upgrade the system*************${reset}"
+
+apt-get update -y
+apt-get upgrade -y
+
+# Install necessary dependencies
+echo -e "${green}*************Install necessary dependencies*************${reset}"
+apt-get install -y curl tar wget original-awk gawk netcat jq
+
+set -e
+
+
+# Ensure the script is run as root
+echo -e "${green}*************Ensure the script is run as root*************${reset}"
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root"
+  exit 1
+fi
+
+echo -e "${green}*************Recieve status of node*************${reset}"
+
 # Extract the port number from the [rpc] section in the config.toml file
 port=$(awk '/\[rpc\]/ {f=1} f && /laddr/ {match($0, /127.0.0.1:([0-9]+)/, arr); print arr[1]; f=0}' $HOME/.story/story/config/config.toml)
 
@@ -17,24 +39,6 @@ touch .bash_profile
 source .bash_profile
 echo -e "${green}************************${reset}"
 
-# Update and upgrade the system
-echo -e "${green}*************Update and upgrade the system*************${reset}"
-
-apt-get update -y
-apt-get upgrade -y
-
-# Install necessary dependencies
-echo -e "${green}*************Install necessary dependencies*************${reset}"
-apt-get install -y curl tar wget original-awk gawk netcat jq
-
-set -e
-
-# Ensure the script is run as root
-echo -e "${green}*************Ensure the script is run as root*************${reset}"
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root"
-  exit 1
-fi
 
 # Function to check the status of a service
 echo -e "${green}*************Function to check the status of a service***********${reset}"
