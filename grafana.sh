@@ -4,7 +4,12 @@ green="\e[32m"
 pink="\e[35m"
 reset="\e[0m"
 
-json_data=$(curl -s http://localhost:26657/status)
+# Extract the port number from the [rpc] section in the config.toml file
+port=$(awk '/\[rpc\]/ {f=1} f && /laddr/ {match($0, /127.0.0.1:([0-9]+)/, arr); print arr[1]; f=0}' $HOME/.story/story/config/config.toml)
+
+# Use the extracted port in your curl request
+json_data=$(curl -s http://localhost:$port/status)
+
 story_address=$(echo "$json_data" | jq -r '.result.validator_info.address')
 network=$(echo "$json_data" | jq -r '.result.node_info.network')
 
@@ -201,7 +206,7 @@ check_service_status "grafana-server"
 
 # Change config in story.toml
 echo -e "${green}*************Change config prometheus ON ***********${reset}"
-file_path="/root/.story/story/config/config.toml"
+file_path="$HOME/.story/story/config/config.toml"
 search_text="prometheus = false"
 replacement_text="prometheus = true"
 
@@ -237,11 +242,11 @@ dashboard_url="https://raw.githubusercontent.com/encipher88/story-grafana/main/s
 
 # Modify the story.json with the dynamic validator address
 echo -e "${green}***********Downloading and modifying the story.json*************${reset}"
-curl -s "$dashboard_url" -o /root/story.json
+curl -s "$dashboard_url" -o $HOME/story.json
 
 # Replace the hardcoded validator ID with the dynamic $story_address
 echo -e "${green}***********Replacing validator address in the story.json*************${reset}"
-sed -i "s/FCB1BF9FBACE6819137DFC999255175B7CA23C5D/$story_address/g" /root/story.json
+sed -i "s/FCB1BF9FBACE6819137DFC999255175B7CA23C5D/$story_address/g" $HOME/story.json
 
 
 
