@@ -70,7 +70,7 @@
       }
     ]
   },
-  "description": "Namada Metrics",
+  "description": "Story Metrics",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "gnetId": 19014,
@@ -1688,7 +1688,7 @@
     ]
   },
   "timezone": "",
-  "title": "Story",
+  "title": "Story Grafana by eNcipher",
   "uid": "UJyurCTWz",
   "version": 2,
   "weekStart": ""
