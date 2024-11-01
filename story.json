@@ -1594,8 +1594,8 @@
       {
         "current": {
           "selected": false,
-          "text": "iliad-0",
-          "value": "iliad-0"
+          "text": "odyssey",
+          "value": "odyssey"
         },
         "hide": 0,
         "label": "Chain ID",
@@ -1603,11 +1603,11 @@
         "options": [
           {
             "selected": true,
-            "text": "iliad-0",
-            "value": "iliad-0"
+            "text": "odyssey",
+            "value": "odyssey"
           }
         ],
-        "query": "iliad-0",
+        "query": "odyssey",
         "skipUrlSync": false,
         "type": "textbox"
       },
